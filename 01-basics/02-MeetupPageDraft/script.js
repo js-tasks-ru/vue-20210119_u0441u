@@ -49,20 +49,59 @@ export const app = new Vue({
 
   data() {
     return {
-      // Требуется хранить данные митапа
+      rawMeetup: null,
     };
   },
 
   mounted() {
-    // Требуется получить данные митапа с API
+    this.rawMeetup = this.fetchMeetup();
   },
 
   computed: {
-    // Возможно, здесь помогут вычисляемые свойства
+    meetup() {
+      // Требуется помнить о том, что изначально митапа может не быть.
+      // В этом случае и вычисляемый митап - это null.
+      if (this.rawMeetup === null) {
+        return null;
+      }
+
+      return {
+        ...this.rawMeetup,
+
+        cover: this.rawMeetup.imageId
+          ? getImageUrlByImageId(this.rawMeetup.imageId)
+          : undefined,
+
+        date: new Date(this.rawMeetup.date),
+
+        localDate: new Date(this.rawMeetup.date).toLocaleString(
+          navigator.language,
+          {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          },
+        ),
+
+        dateOnlyString: new Date(this.rawMeetup.date)
+          .toISOString()
+          .split('T')[0],
+
+        agenda: this.rawMeetup.agenda.map((agendaItem) => ({
+          ...agendaItem,
+          icon: `icon-${getAgendaItemIcons()[agendaItem.type]}.svg`,
+          title:
+            agendaItem.title || getAgendaItemDefaultTitles()[agendaItem.type],
+        })),
+      };
+    },
   },
 
   methods: {
-    // Получение данных с API предпочтительнее оформить отдельным методом,
-    // а не писать прямо в mounted()
+    async fetchMeetup() {
+      this.rawMeetup = await fetch(
+        `${API_URL}/meetups/${MEETUP_ID}`,
+      ).then((res) => res.json());
+    },
   },
 });
