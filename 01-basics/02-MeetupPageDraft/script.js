@@ -1,7 +1,8 @@
 import Vue from './vue.esm.browser.js';
-
-/** URL адрес API */
 const API_URL = 'https://course-vue.javascript.ru/api';
+const fetchMeetups = () =>
+  fetch( API_URL + '/meetups').then((res) => res.json());
+/** URL адрес API */
 
 /** ID митапа для примера; используйте его при получении митапа */
 const MEETUP_ID = 6;
@@ -45,24 +46,74 @@ const getAgendaItemIcons = () => ({
 });
 
 export const app = new Vue({
-  el: '#app',
+  //el: '#app',
 
   data() {
     return {
-      // Требуется хранить данные митапа
+      RawMeetups: null, // Требуется хранить данные митапа
     };
   },
 
   mounted() {
-    // Требуется получить данные митапа с API
+    fetchMeetups().then((meetups) => {
+      this.RawMeetups = [];
+      meetups.forEach((meetup) => this.fetchRawMeetup(meetup.id).then((meetup) => this.RawMeetups.push(meetup)));
+    }); // Требуется получить данные митапа с API
   },
 
   computed: {
-    // Возможно, здесь помогут вычисляемые свойства
+    meetups: function() {
+      return !this.RawMeetups ? null : this.RawMeetups.map(
+        (meetup) => (
+          {
+            ...meetup,
+            date: new Date(meetup.date),
+            cover: meetup.imageId
+              ? `https://course-vue.javascript.ru/api/images/${meetup.imageId}` : null,
+            coverStyle: meetup.imageId
+              ? {
+                '--bg-url': `url(https://course-vue.javascript.ru/api/images/${meetup.imageId})`,
+              }
+              : undefined,
+            localDate: new Date(meetup.date).toLocaleString(navigator.language, {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+            }),
+            dateOnlyString: new Date(meetup.date).toISOString().split('T')[0],
+            agenda: meetup.agenda.map(
+              (agenda) => (
+                {
+                  ...agenda,
+                  prettyType: this.agendaItemTitles()[agenda.type],
+                  prettyIcon:  this.agendaItemIcons()[agenda.type]
+                }
+              )
+            )
+          }
+        )
+      );
+    }
   },
 
+// Возможно, здесь помогут вычисляемые свойства
+
   methods: {
-    // Получение данных с API предпочтительнее оформить отдельным методом,
-    // а не писать прямо в mounted()
-  },
+    fetchRawMeetup(id) {
+      return fetch( `${API_URL}/meetups/${id}`).then((res) => res.json());
+    },
+
+    meetupCover() {
+      return this.meetup.imageId ? getImageUrlByImageId(this.meetup.imageId) : null;
+    },
+
+    agendaItemTitles() {
+      return getAgendaItemDefaultTitles();
+    },
+    agendaItemIcons() {
+      return getAgendaItemIcons();
+    }
+  }
 });
+
+app.$mount('#app');
