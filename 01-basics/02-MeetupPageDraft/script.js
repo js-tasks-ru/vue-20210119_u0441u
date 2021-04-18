@@ -1,7 +1,8 @@
 import Vue from './vue.esm.browser.js';
-
-/** URL адрес API */
 const API_URL = 'https://course-vue.javascript.ru/api';
+const fetchMeetups = () =>
+  fetch( API_URL + '/meetups').then((res) => res.json());
+/** URL адрес API */
 
 /** ID митапа для примера; используйте его при получении митапа */
 const MEETUP_ID = 6;
@@ -45,63 +46,74 @@ const getAgendaItemIcons = () => ({
 });
 
 export const app = new Vue({
-  el: '#app',
+  //el: '#app',
 
   data() {
     return {
-      rawMeetup: null,
+      RawMeetups: null, // Требуется хранить данные митапа
     };
   },
 
   mounted() {
-    this.rawMeetup = this.fetchMeetup();
+    fetchMeetups().then((meetups) => {
+      this.RawMeetups = [];
+      meetups.forEach((meetup) => this.fetchRawMeetup(meetup.id).then((meetup) => this.RawMeetups.push(meetup)));
+    }); // Требуется получить данные митапа с API
   },
 
   computed: {
-    meetup() {
-      // Требуется помнить о том, что изначально митапа может не быть.
-      // В этом случае и вычисляемый митап - это null.
-      if (this.rawMeetup === null) {
-        return null;
-      }
-
-      return {
-        ...this.rawMeetup,
-
-        cover: this.rawMeetup.imageId
-          ? getImageUrlByImageId(this.rawMeetup.imageId)
-          : undefined,
-
-        date: new Date(this.rawMeetup.date),
-
-        localDate: new Date(this.rawMeetup.date).toLocaleString(
-          navigator.language,
+    meetups: function() {
+      return !this.RawMeetups ? null : this.RawMeetups.map(
+        (meetup) => (
           {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-          },
-        ),
-
-        dateOnlyString: new Date(this.rawMeetup.date)
-          .toISOString()
-          .split('T')[0],
-
-        agenda: this.rawMeetup.agenda.map((agendaItem) => ({
-          ...agendaItem,
-          icon: `icon-${getAgendaItemIcons()[agendaItem.type]}.svg`,
-          title:
-            agendaItem.title || getAgendaItemDefaultTitles()[agendaItem.type],
-        })),
-      };
-    },
+            ...meetup,
+            date: new Date(meetup.date),
+            cover: meetup.imageId
+              ? `https://course-vue.javascript.ru/api/images/${meetup.imageId}` : null,
+            coverStyle: meetup.imageId
+              ? {
+                '--bg-url': `url(https://course-vue.javascript.ru/api/images/${meetup.imageId})`,
+              }
+              : undefined,
+            localDate: new Date(meetup.date).toLocaleString(navigator.language, {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+            }),
+            dateOnlyString: new Date(meetup.date).toISOString().split('T')[0],
+            agenda: meetup.agenda.map(
+              (agenda) => (
+                {
+                  ...agenda,
+                  prettyType: this.agendaItemTitles()[agenda.type],
+                  prettyIcon:  this.agendaItemIcons()[agenda.type]
+                }
+              )
+            )
+          }
+        )
+      );
+    }
   },
+
+// Возможно, здесь помогут вычисляемые свойства
 
   methods: {
-    async fetchMeetup() {
-      this.rawMeetup = await fetch(
-        `${API_URL}/meetups/${MEETUP_ID}`,
-      ).then((res) => res.json());
+    fetchRawMeetup(id) {
+      return fetch( `${API_URL}/meetups/${id}`).then((res) => res.json());
     },
-  },
+
+    meetupCover() {
+      return this.meetup.imageId ? getImageUrlByImageId(this.meetup.imageId) : null;
+    },
+
+    agendaItemTitles() {
+      return getAgendaItemDefaultTitles();
+    },
+    agendaItemIcons() {
+      return getAgendaItemIcons();
+    }
+  }
 });
+
+app.$mount('#app');
